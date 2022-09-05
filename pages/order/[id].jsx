@@ -1,6 +1,9 @@
+import axios from "axios";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-function Order() {
+import moment from "moment";
+
+function Order({ order }) {
   // To fix hydration UI mismatch issues, we need to wait until the component has mounted.
   const [mounted, setMounted] = useState(false);
 
@@ -9,7 +12,8 @@ function Order() {
   }, []);
   if (!mounted) return null;
 
-  const status = 0;
+  // const status = 0;
+  const status = order.status;
 
   const statusClass = (index) => {
     if (index - status < 1) return "done flex flex-col items-center mb-5";
@@ -20,9 +24,9 @@ function Order() {
   };
   return (
     <div className="w-full flex-col p-12 md:inline-flex">
-      <table class="w-full flex flex-row flex-no-wrap sm:bg-white rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
-        <thead class="text-white">
-          <tr class="bg-red-400 flex flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
+      <table className="w-full flex flex-row flex-no-wrap sm:bg-white rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
+        <thead className="text-white">
+          <tr className="bg-red-400 flex flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
             <th className="border p-5 text-left">Order ID</th>
             <th className="border p-5 text-left">Customer Name</th>
             <th className="border p-5 text-left">Address</th>
@@ -30,29 +34,29 @@ function Order() {
             <th className="border p-5 text-left">Total</th>
           </tr>
         </thead>
-        <tbody class="flex-1 sm:flex-none">
-          <tr class="flex flex-col flex-no wrap md:table-row mb-5 mb:mb-0">
-            <td class="border-grey-light border hover:bg-gray-100 p-5 truncate">
+        <tbody className="flex-1 sm:flex-none">
+          <tr className="flex flex-col flex-no wrap md:table-row mb-5 mb:mb-0">
+            <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
               <span className="font-medium text-[#d1411e] md:text-lg">
-                CORALZO
+                {order._id}
               </span>
             </td>
-            <td class="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
-              <span className="">Jake Doe</span>
+            <td className="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
+              <span className=""> {order.customer}</span>
             </td>
-            <td class="border-grey-light border hover:bg-gray-100 p-5">
+            <td className="border-grey-light border hover:bg-gray-100 p-5">
               <span className="before:text-normal before:content-['Price: ']">
-                Elton st. 212-33 LA
+                {order.address}
               </span>
             </td>
-            <td class="border-grey-light border hover:bg-gray-100 p-5 truncate">
+            <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
               <span className="before:text-normal before:content-['Price: ']">
-                Date
+                {moment(order.createdAt).format("MMMM Do YYYY, h:mm:ss a")}
               </span>
             </td>
-            <td class="border-grey-light border hover:bg-gray-100 p-5 truncate">
+            <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
               <span className="before:text-normal before:content-['Price: ']">
-                $79.80
+                ${order.total}
               </span>
             </td>
           </tr>
@@ -114,13 +118,13 @@ function Order() {
       </div>
       <div className="w-full flex-col space-y-2 md:space-y-0 md:inline-flex md:flex-row gap-6  border p-8 mt-5 items-center justify-center text-center ">
         <div className="font-medium text-lg">
-          <b className=" mr-2">Subtotal:</b>$79.60
+          <b className=" mr-2">Subtotal:</b>${order.total}
         </div>
         <div className="font-medium text-lg">
           <b className=" mr-2">Discount:</b>$0.00
         </div>
         <div className="font-medium text-lg">
-          <b className=" mr-2">Cart Total:</b>$79.60
+          <b className=" mr-2">Cart Total:</b>${order.total}
         </div>
         <button className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer ">
           Paid
@@ -131,3 +135,14 @@ function Order() {
 }
 
 export default Order;
+
+// Fetch a single order
+export const getServerSideProps = async ({ params }) => {
+  const res = await axios.get(`http://localhost:3000/api/orders/${params.id}`);
+  const order = res.data;
+  return {
+    props: {
+      order: order,
+    },
+  };
+};

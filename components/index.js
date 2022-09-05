@@ -5,3 +5,4 @@ export { default as Footer } from "./Footer";
 export { default as Featured } from "./Featured";
 export { default as PizzaCard } from "./PizzaCard";
 export { default as PizzaList } from "./PizzaList";
+export { default as OrderDetail } from "./OrderDetail";

@@ -1263,7 +1263,7 @@ export default async function handler(req, res) {
     // update product
     try {
       const product = await Product.create(req.body);
-      res.status(200).json(product);
+      res.status(201).json(product);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -1271,13 +1271,14 @@ export default async function handler(req, res) {
   if (method === "DELETE") {
     // delete product
     try {
-      const product = await Product.create(req.body);
-      res.status(200).json(product);
+      await Product.findByIdAndDelete(id);
+      res.status(200).json("The product has been deleted!");
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
   }
 }
+
 
 
 ```
@@ -1597,7 +1598,927 @@ function Cart() {
   ...
 
   return (
-    ...
+    <div class="flex flex-col m-8 items-center justify-center ">
+      <div class="w-full md:w-full">
+        <table class="w-full flex flex-row flex-no-wrap  rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
+          <thead class="text-white">
+            <tr class="hidden bg-red-400 flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
+              <th className="border h-[10vh] p-5 text-left">Product</th>
+              <th className="border p-5 text-left">Name</th>
+              <th className="border p-5 text-left">Extras</th>
+              <th className="border p-5 text-left">Price</th>
+              <th className="border p-5">Quantity</th>
+              <th className="border p-5 text-left">Total</th>
+              <th className="border p-5 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="flex-1 ">
+            {cart.products.map((product) => (
+              <tr
+                class="flex flex-col flex-no wrap md:table-row mb-10 md:mb-0"
+                key={product._id}
+              >
+                <td class=" border-grey-light border hover:bg-gray-100 p-5">
+                  <div className="h-[5.5vh] md:h-[10vh] relative">
+                    <Image
+                      src="/assets/pizza.png"
+                      layout="fill"
+                      objectFit="contain"
+                      alt=""
+                    />
+                  </div>
+                </td>
+                <td class="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="font-medium text-[#d1411e] md:text-lg">
+                    {product.title}
+                  </span>
+                </td>
+                <td class="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
+                  <span className="">{product.extraOptions.map(extra =>
+                  <span key={extra._id}>{extra.text}</span>
+                  )}</span>
+                </td>
+                <td class="border-grey-light border hover:bg-gray-100 p-5">
+                  <span className="before:text-normal before:content-['Price: ']">
+                  {product.price}
+                  </span>
+                </td>
+                <td class="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="before:text-normal before:content-['Quantity: ']">
+                  {product.qty}
+                  </span>
+                </td>
+                <td class="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="before:text-normal before:content-['Price: ']">
+                  {product.price * product.qty}
+                  </span>
+                </td>
+                <td class="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
+                  Delete
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="w-full flex-col space-y-2 md:space-y-0 md:inline-flex md:flex-row gap-6  border p-8 mt-5 items-center justify-center text-center ">
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Subtotal:</b>${cart.total}
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Discount:</b>$0.00
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Cart Total:</b>${cart.total}
+        </div>
+        <button className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer ">
+          Proceed To Checkout
+        </button>
+      </div>
+    </div>
+  );
+
+```
+
+## Paypal Integration with NextJS:
+
+```
+npm install @paypal/react-paypal-js
+```
+
+https://paypal.github.io/react-paypal-js/?path=/docs/example-paypalbuttons--default
+
+Open pages/cart.js:
+
+```
+import {
+    PayPalScriptProvider,
+    PayPalButtons,
+    usePayPalScriptReducer
+} from "@paypal/react-paypal-js";
+
+function Cart() {
+// This values are the props in the UI
+const amount = "2";
+const currency = "USD";
+const style = {"layout":"vertical"};
+
+
+// Custom component to wrap the PayPalButtons and handle currency changes
+const ButtonWrapper = ({ currency, showSpinner }) => {
+    // usePayPalScriptReducer can be use only inside children of PayPalScriptProviders
+    // This is the main reason to wrap the PayPalButtons in a new component
+    const [{ options, isPending }, dispatch] = usePayPalScriptReducer();
+
+    useEffect(() => {
+        dispatch({
+            type: "resetOptions",
+            value: {
+                ...options,
+                currency: currency,
+            },
+        });
+    }, [currency, showSpinner]);
+
+
+    return (<>
+            { (showSpinner && isPending) && <div className="spinner" /> }
+            <PayPalButtons
+                style={style}
+                disabled={false}
+                forceReRender={[amount, currency, style]}
+                fundingSource={undefined}
+                createOrder={(data, actions) => {
+                    return actions.order
+                        .create({
+                            purchase_units: [
+                                {
+                                    amount: {
+                                        currency_code: currency,
+                                        value: amount,
+                                    },
+                                },
+                            ],
+                        })
+                        .then((orderId) => {
+                            // Your code here after create the order
+                            return orderId;
+                        });
+                }}
+                onApprove={function (data, actions) {
+                    return actions.order.capture().then(function () {
+                        // Your code here after capture the order
+                    });
+                }}
+            />
+        </>
+    );
+}
+
+return(
+  ...
+ <div className="w-full flex-col space-y-2 md:space-y-0 md:inline-flex md:flex-row gap-6  border p-8 mt-5 items-center justify-center text-center ">
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Subtotal:</b>${cart.total}
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Discount:</b>$0.00
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Cart Total:</b>${cart.total}
+        </div>
+        <button className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer ">
+          Proceed To Checkout
+        </button>
+
+        <PayPalScriptProvider
+          options={{
+            "client-id": "test",
+            components: "buttons",
+            currency: "USD",
+               "disable-funding":"credit,card,p24" // to disable any other payment methods which collaborates with paypal
+          }}
+        >
+          <ButtonWrapper currency={currency} showSpinner={false} />
+        </PayPalScriptProvider>
+
+      </div>
+    </div>
+
+
+)
+```
+
+Open the Payment methods when you click on the "Proceed to Checkout" button:
+
+In pages/cart.jsx:
+
+```
+const [open, setOpen] = useState(false);
+
+      <div className="w-full flex-col space-y-2 md:space-y-0 md:inline-flex md:flex-row gap-6  border p-8 mt-5 items-center justify-center text-center ">
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Subtotal:</b>${cart.total}
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Discount:</b>$0.00
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Cart Total:</b>${cart.total}
+        </div>
+
+        {open ? (
+          <PayPalScriptProvider
+            options={{
+              "client-id": "test",
+              components: "buttons",
+              currency: "USD",
+            //  "disable-funding": "credit,card,p24", // to disable any other payment methods which collaborates with paypal
+            }}
+          >
+            <ButtonWrapper currency={currency} showSpinner={false} />
+          </PayPalScriptProvider>
+        ) : (
+          <button
+            className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer"
+            onClick={() => setOpen(true)}
+          >
+            Proceed To Checkout
+          </button>
+        )}
+      </div>
+    </div>
+```
+
+Create another payment method "cash on delivery" in pages/cart.jsx:
+
+```
+
+```
+
+Next, to use Paypal you need to create a developer account: https://developer.paypal.com/home/
+
+Create a sandbox test account. Create Account -> Business (Merchant Account) -> Country(UK) -> Create
+Create a sandbox test account. Create Account -> Personal (Buyer Account) -> Country(UK) -> Create
+Next click on My Apps & Credentials in the sidebar -> Create App
+App Name: Food Delivery App - Merchant Test
+App Type: Merchant – Accept payments as a merchant (seller)
+Sandbox Business Account: ....
+Create App
+Copy the Client ID and add into cart.jsx.
+
+```
+     <PayPalScriptProvider
+            options={{
+              "client-id": " Client ID Goes Here",
+              components: "buttons",
+              currency: "USD",
+            //  "disable-funding": "credit,card,p24", // to disable any other payment methods which collaborates with paypal
+            }}
+          >
+            <ButtonWrapper currency={currency} showSpinner={false} />
+          </PayPalScriptProvider>
+
+```
+
+To test the Sandbox account, go to https://www.sandbox.paypal.com/signin
+
+First get your test merchant and buyer account credentials click on Accounts in the sidebar (https://developer.paypal.com/developer/accounts).
+Choose your account -> ... -> View/Edit account -> Profile tab:
+Email ID:
+xyz
+System Generated Password:
+xyz
+
+The login to each account with one in incognito mode. Now try to checkout on the website and you should see the transaction details in the business and personal account summary.
+
+After successful checkout we need to create functions within onApprove in pages/cart.jsx:
+
+```
+ onApprove={function (data, actions) {
+            return actions.order.capture().then(function (details) {
+              console.log(details);
+            });
+          }}
+
+```
+
+First, we need to create an endpoint to handle the order:
+pages/api/orders/index.js and pages/api/orders/[id].js:
+
+In pages/api/orders/index.js:
+
+```
+import dbConnect from "../../../util/mongodb";
+import Order from "../../../models/Order";
+
+const handler = async (req, res) => {
+  const { method } = req;
+  await dbConnect();
+
+  if (method === "GET") {
+    try {
+      const orders = await Order.find();
+      res.status(200).json(orders);
+    } catch (err) {
+      res.status(500).json(err);
+    }
+  }
+  if (method === "POST") {
+    try {
+      const order = await Order.create(req.body);
+      res.status(201).json(order);
+    } catch (err) {
+      res.status(500).json(err);
+    }
+  }
+};
+
+export default handler;
+
+```
+
+In pages/api/orders/[id].js:
+
+```
+import dbConnect from "../../../util/mongodb";
+import Order from "../../../models/Order";
+import { reset } from "../../../redux/cartSlice";
+
+const handler = async (req, res) => {
+  const {
+    method,
+    query: { id },
+  } = req;
+
+  await dbConnect();
+
+  if (method === "GET") {
+    try {
+      const order = await Order.findById(id);
+      res.status(200).json(order);
+    } catch (err) {
+      res.status(500).json(err);
+    }
+  }
+  if (method === "PUT") {
+      // update order
+      try {
+        const order = await Order.findByIdAndUpdate(id, req.body, {
+          new: true,
+        }); //new:true returns the most updated version
+        res.status(201).json(order);
+      } catch (err) {
+        res.status(500).json({ message: err.message });
+      }
+  }
+  if (method === "DELETE") {
+  }
+};
+
+export default handler;
+
+
+```
+
+We need to create and update functions within onApprove in pages/cart.jsx:
+
+```
+import axios from "axios";
+import { useRouter } from "next/router";
+import { reset } from "../redux/cartSlice";
+
+function Cart() {
+  const router = useRouter();
+
+  // const amount = "2";
+  const amount = cart.total;
+
+  const createOrder = async (data) => {
+      try {
+        const res = await axios.post("http://localhost:3000/api/orders", data);
+        res.status === 201 && router.push("/orders/" + res.data._id);
+         dispatch(reset());
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+      return (
+      <>
+        {showSpinner && isPending && <div className="spinner" />}
+        <PayPalButtons
+          style={style}
+          disabled={false}
+          forceReRender={[amount, currency, style]}
+          fundingSource={undefined}
+          createOrder={(data, actions) => {
+            return actions.order
+              .create({
+                purchase_units: [
+                  {
+                    amount: {
+                      currency_code: currency,
+                      value: amount,
+                    },
+                  },
+                ],
+              })
+              .then((orderId) => {
+                // Your code here after create the order
+                return orderId;
+              });
+          }}
+          onApprove={function (data, actions) {
+            return actions.order.capture().then(function (details) {
+              console.log(details); // After the order has been approved by Paypal
+              const shipping = details.purchase_units[0].shipping;
+              createOrder({
+                customer: shipping.name.full_name,
+                address: shipping.address.address_line_1,
+                total: cart.total,
+                method: 1, // cash method:0, PayPal method: 1
+              });
+            });
+          }}
+        />
+      </>
+    );
+```
+
+In cartSlice.js:
+
+```
+reducers: {
+    addProduct: (state, action) => {
+      state.products.push(action.payload);
+      state.cartQuantity += 1;
+      state.total += action.payload.price * action.payload.qty;
+    },
+    reset: (state) => {
+      // state = initialState;
+      state.products = [];
+      state.cartQuantity = 0;
+      state.total = 0;
+    },
+  },
+```
+
+Install Moment:
+
+```
+npm i moment
+```
+
+Next, in pages/order/[id].js:
+
+```
+import axios from "axios";
+import Image from "next/image";
+import { useState, useEffect } from "react";
+import moment from "moment";
+
+function Order({ order }) {
+  // To fix hydration UI mismatch issues, we need to wait until the component has mounted.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
+
+  // const status = 0;
+  const status = order.status;
+
+  const statusClass = (index) => {
+    if (index - status < 1) return "done flex flex-col items-center mb-5";
+    if (index - status === 1)
+      return "inProgress flex flex-col items-center mb-5  animate-pulse";
+    if (index - status > 1)
+      return "undone mb-5  flex flex-col items-center opacity-30";
+  };
+  return (
+    <div className="w-full flex-col p-12 md:inline-flex">
+      <table className="w-full flex flex-row flex-no-wrap sm:bg-white rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
+        <thead className="text-white">
+          <tr className="bg-red-400 flex flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
+            <th className="border p-5 text-left">Order ID</th>
+            <th className="border p-5 text-left">Customer Name</th>
+            <th className="border p-5 text-left">Address</th>
+            <th className="border p-5 text-left">Order Date</th>
+            <th className="border p-5 text-left">Total</th>
+          </tr>
+        </thead>
+        <tbody className="flex-1 sm:flex-none">
+          <tr className="flex flex-col flex-no wrap md:table-row mb-5 mb:mb-0">
+            <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+              <span className="font-medium text-[#d1411e] md:text-lg">
+                {order._id}
+              </span>
+            </td>
+            <td className="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
+              <span className=""> {order.customer}</span>
+            </td>
+            <td className="border-grey-light border hover:bg-gray-100 p-5">
+              <span className="before:text-normal before:content-['Price: ']">
+                {order.address}
+              </span>
+            </td>
+            <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+              <span className="before:text-normal before:content-['Price: ']">
+                {moment(order.createdAt).format("MMMM Do YYYY, h:mm:ss a")}
+              </span>
+            </td>
+            <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+              <span className="before:text-normal before:content-['Price: ']">
+                {order.total}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="w-full flex-col items-center justify-evenly py-10 border md:inline-flex md:flex-row">
+        <div className={statusClass(0)}>
+          <Image src="/assets/paid.png" width={30} height={30} alt="" />
+          <span>Payment</span>
+          <div className="checkedIcon">
+            <Image
+              className="checkedIcon"
+              src="/assets/checked.png"
+              width={20}
+              height={20}
+              alt=""
+            />
+          </div>
+        </div>
+        <div className={statusClass(1)}>
+          <Image src="/assets/bake.png" width={30} height={30} alt="" />
+          <span>Preparing</span>
+          <div className="checkedIcon">
+            <Image
+              className="checkedIcon"
+              src="/assets/checked.png"
+              width={20}
+              height={20}
+              alt=""
+            />
+          </div>
+        </div>
+        <div className={statusClass(2)}>
+          <Image src="/assets/bike.png" width={30} height={30} alt="" />
+          <span>On the way</span>
+          <div className="checkedIcon">
+            <Image
+              className="checkedIcon"
+              src="/assets/checked.png"
+              width={20}
+              height={20}
+              alt=""
+            />
+          </div>
+        </div>
+        <div className={statusClass(3)}>
+          <Image src="/assets/delivered.png" width={30} height={30} alt="" />
+          <span>Delivered</span>
+          <div className="checkedIcon">
+            <Image
+              className="checkedIcon"
+              src="/assets/checked.png"
+              width={20}
+              height={20}
+              alt=""
+            />
+          </div>
+        </div>
+      </div>
+      <div className="w-full flex-col space-y-2 md:space-y-0 md:inline-flex md:flex-row gap-6  border p-8 mt-5 items-center justify-center text-center ">
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Subtotal:</b>${order.total}
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Discount:</b>$0.00
+        </div>
+        <div className="font-medium text-lg">
+          <b className=" mr-2">Cart Total:</b>${order.total}
+        </div>
+        <button className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer ">
+          Paid
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default Order;
+
+// Fetch a single order
+export const getServerSideProps = async ({ params }) => {
+  const res = await axios.get(`http://localhost:3000/api/orders/${params.id}`);
+  const order = res.data;
+  return {
+    props: {
+      order: order,
+    },
+  };
+};
+
+```
+
+Next, for "cash on delivery" in cart.jsx:
+
+```
+
+  const [cash, setCash] = useState(false);
+
+
+  ...
+     {open ? (
+          <div className="mt-3 flex flex-col">
+            <button className="p-2 cursor-pointer mb-2  bg-white text-teal-500 font-bold py-3 px-2" onClick={() => setCash(true)}>
+              CASH ON DELIVERY
+            </button>
+
+            <PayPalScriptProvider
+              options={{
+                "client-id":
+                  "ActxEO_49uJFNljhM78_FCcOz5xHoaw18anBB4zl8GmbBA2hT41l2BBSBr8-D5Ec8AkoUXwS9dxVqNmm",
+                components: "buttons",
+                currency: "USD",
+                //  "disable-funding": "credit,card,p24", // to disable any other payment methods which collaborates with paypal
+              }}
+            >
+              <ButtonWrapper currency={currency} showSpinner={false} />
+            </PayPalScriptProvider>
+          </div>
+        ) : (
+          <button
+            className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer"
+            onClick={() => setOpen(true)}
+          >
+            Proceed To Checkout
+          </button>
+        )}
+```
+
+If setCash(true) open a modal:
+
+In cart.jsx:
+
+```
+  ....
+     {open ? (
+          <div className="mt-3 flex flex-col">
+            <button
+              className="p-2 cursor-pointer mb-2  bg-white text-teal-500 font-bold py-3 px-2"
+              onClick={() => setCash(true)}
+            >
+              CASH ON DELIVERY
+            </button>
+
+            <PayPalScriptProvider
+              options={{
+                "client-id":
+                  "ActxEO_49uJFNljhM78_FCcOz5xHoaw18anBB4zl8GmbBA2hT41l2BBSBr8-D5Ec8AkoUXwS9dxVqNmm",
+                components: "buttons",
+                currency: "USD",
+                //  "disable-funding": "credit,card,p24", // to disable any other payment methods which collaborates with paypal
+              }}
+            >
+              <ButtonWrapper currency={currency} showSpinner={false} />
+            </PayPalScriptProvider>
+          </div>
+        ) : (
+          <button
+            className="h-8 bg-[#d1411e] text-white px-4 rounded-lg font-bold cursor-pointer"
+            onClick={() => setOpen(true)}
+          >
+            Proceed To Checkout
+          </button>
+        )}
+      </div>
+      {cash && <OrderDetail total={cart.total} createOrder={createOrder} />}{" "}
+    </div>
+  );
+}
+
+export default Cart;
+
+```
+
+We create a component called OrderDetail.js for it in components folder.
+In OrderDetail.js:
+
+```
+import React, { useState } from "react";
+
+function OrderDetail({ total, createOrder }) {
+  const [customer, setCustomer] = useState("");
+  const [address, setAddress] = useState("");
+  const handleClick = () => {
+    createOrder({ customer, address, total, method: 0 });
+  };
+
+  return (
+    <div className="w-full h-[100vh] absolute top-0 left-0 flex items-center justify-center bg-gray-400 opacity-70 z-[999] ">
+      <div className="w-[500px] bg-white rounded-lg p-5 flex flex-col items-center justify-center">
+        <h1 className="font-light text-2xl mb-4">
+          You will pay $12 after delivery.
+        </h1>
+        <div className="flex flex-col w-full mb-4">
+          <label className="mb-2">Full Name</label>
+          <input
+            className="h-10 border p-2"
+            type="text"
+            placeholder="John Doe"
+            onChange={(e) => setCustomer(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col w-full mb-4">
+          <label className="mb-2">Phone Number</label>
+          <input
+            className="h-10  border p-2"
+            type="text"
+            placeholder="+1 234 567 89"
+          />
+        </div>
+        <div className="flex flex-col w-full mb-4">
+          <label className="mb-2">Address</label>
+          <textarea
+            className="h-10  border p-2"
+            type="text"
+            rows={5}
+            placeholder="Elton St. 505 NY"
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </div>
+        <button
+          className="border-none bg-teal-500 text-white py-2 px-3 font-semibold text-lg rounded-md cursor-pointer"
+          onClick={handleClick}
+        >
+          Order
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default OrderDetail;
+
+
+```
+
+Next, we need to create a admin dashboard for admin access:
+Create pages/admin/index.js.
+
+```
+import axios from "axios";
+import Image from "next/image";
+import React, { useState } from "react";
+
+function Index({ orders, products }) {
+  const [pizzaList, setPizzaList] = useState(products);
+  const [orderList, setOrderList] = useState(orders);
+  const status = ["Preparing", "On the way", "Delivered"];
+  const handleDelete = async (id) => {
+    console.log(id);
+    try {
+      const res = await axios.delete(
+        "http://localhost:3000/api/products/" + id
+      );
+      setPizzaList(pizzaList.filter((pizza) => pizza._id !== id));
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handleStatus = async (id) => {
+    const item = orderList.filter((order) => order._id === id)[0];
+    const currentStatus = item.status;
+    try {
+      const res = await axios.put("http://localhost:3000/api/orders/" + id, {
+        status: currentStatus + 1,
+      });
+      setOrderList([res.data, ...orderList.filter((order) => order._id !== id)]);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+  return (
+    <div className="p-12 flex gap-4">
+      <div className="flex-1">
+        <h1 className="">Products</h1>
+        <table className="w-full border-spacing-5 text-left flex flex-row flex-no-wrap sm:bg-white rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
+          <thead className="text-white">
+            <tr className="bg-red-400 flex flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
+              <th className="border p-5 text-left">Image</th>
+              <th className="border p-5 text-left">Id</th>
+              <th className="border p-5 text-left">Title</th>
+              <th className="border p-5 text-left">Price</th>
+              <th className="border p-5 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody className="flex-1 sm:flex-none">
+            {pizzaList.map((product) => (
+              <tr
+                key={product._id}
+                className="flex flex-col flex-no wrap md:table-row mb-5 mb:mb-0"
+              >
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="font-medium text-[#d1411e] md:text-lg">
+                    <Image
+                      //   src="/assets/pizza.png"
+                      src={product.img}
+                      alt=""
+                      width={50}
+                      height={50}
+                      objectFit="cover"
+                    />
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
+                  <span className="">{product._id.slice(0, 5)}...</span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5">
+                  <span className="before:text-normal before:content-['Price: ']">
+                    {product.title}
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="before:text-normal before:content-['Price: ']">
+                    ${product.prices[0]}
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <button
+                    className="border-none bg-teal-500 mr-2 text-white rounded-lg p-2 cursor-pointer"
+                    onClick={() => handleEdit(product._id)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="border-none bg-red-500 text-white rounded-lg p-2 cursor-pointer"
+                    onClick={() => handleDelete(product._id)}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex-1">
+        <h1 className="">Orders</h1>
+        <table className="w-full  border-spacing-5 text-left flex flex-row flex-no-wrap sm:bg-white rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
+          <thead className="text-white">
+            <tr className="bg-red-400 flex flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
+              <th className="border p-5 text-left">OrderID</th>
+              <th className="border p-5 text-left">Customer</th>
+              <th className="border p-5 text-left">Total</th>
+              <th className="border p-5 text-left">Payment</th>
+              <th className="border p-5 text-left">Status</th>
+              <th className="border p-5 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody className="flex-1 sm:flex-none">
+            {orderList.map((order) => (
+              <tr
+                key={order._id}
+                className="flex flex-col flex-no wrap md:table-row mb-5 mb:mb-0"
+              >
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="font-medium text-[#d1411e] md:text-lg">
+                    {order._id.slice(0, 5)}...
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 text-red-400 hover:text-red-600 hover:font-medium cursor-pointer">
+                  <span className="">{order.customer}</span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5">
+                  <span className="before:text-normal before:content-['Price: ']">
+                    ${order.total}
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="before:text-normal before:content-['Price: ']">
+                    {order.method === 0 ? <span>Cash</span> : <span>Paid</span>}
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <span className="before:text-normal before:content-['Price: ']">
+                    {status[order.status]}
+                  </span>
+                </td>
+                <td className="border-grey-light border hover:bg-gray-100 p-5 truncate">
+                  <button
+                    className="border-none bg-teal-500 text-white rounded-lg p-2 cursor-pointer"
+                    onClick={() => handleStatus(order._id)}
+                  >
+                    Next Stage
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default Index;
+
+export const getServerSideProps = async () => {
+  const productRes = await axios.get("http://localhost:3000/api/products");
+  const orderRes = await axios.get("http://localhost:3000/api/orders");
+
+  return {
+    props: {
+      orders: orderRes.data,
+      products: productRes.data,
+    },
+  };
+};
 
 
 ```
