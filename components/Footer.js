@@ -155,7 +155,7 @@ function Footer() {
         </Link>
       </div>
       <div className="flex items-center justify-center text-white text-md py-5">
-        <p>Copyright © 2022 Firezza. All Rights Reserved</p>
+        <p>Copyright © 2022 PizzaRustica. All Rights Reserved</p>
       </div>
     </footer>
   );
