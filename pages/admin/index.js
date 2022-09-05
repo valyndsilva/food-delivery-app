@@ -1,10 +1,12 @@
 import axios from "axios";
 import Image from "next/image";
 import React, { useState } from "react";
+import { AddButton, AddProduct } from "../../components";
 
-function Index({ orders, products }) {
+function Index({ orders, products, admin }) {
   const [pizzaList, setPizzaList] = useState(products);
   const [orderList, setOrderList] = useState(orders);
+  const [close, setClose] = useState(true);
   const status = ["Preparing", "On the way", "Delivered"];
   const handleDelete = async (id) => {
     console.log(id);
@@ -25,7 +27,10 @@ function Index({ orders, products }) {
       const res = await axios.put("http://localhost:3000/api/orders/" + id, {
         status: currentStatus + 1,
       });
-      setOrderList([res.data, ...orderList.filter((order) => order._id !== id)]);
+      setOrderList([
+        res.data,
+        ...orderList.filter((order) => order._id !== id),
+      ]);
     } catch (err) {
       console.log(err);
     }
@@ -34,6 +39,8 @@ function Index({ orders, products }) {
     <div className="p-12 flex gap-4">
       <div className="flex-1">
         <h1 className="">Products</h1>
+        {admin && <AddButton setClose={setClose} />}
+        {!close && <AddProduct setClose={setClose} />}
         <table className="w-full border-spacing-5 text-left flex flex-row flex-no-wrap sm:bg-white rounded-lg overflow-hidden sm:shadow-lg my-5 md:inline-table">
           <thead className="text-white">
             <tr className="bg-red-400 flex flex-col flex-no wrap md:table-row rounded-l-lg sm:rounded-none mb-2 sm:mb-0">
@@ -155,7 +162,18 @@ function Index({ orders, products }) {
 
 export default Index;
 
-export const getServerSideProps = async () => {
+export const getServerSideProps = async (context) => {
+  // If there is no cookie or the token is not correct, redirect to login page
+  const myCookie = context.req?.cookies || "";
+  if (myCookie.token !== process.env.TOKEN) {
+    return { redirect: { destination: "/admin/login", permanent: false } };
+  } // nextJS redirect method
+
+  let admin = false;
+  if (myCookie.token === process.env.TOKEN) {
+    admin = true;
+  }
+
   const productRes = await axios.get("http://localhost:3000/api/products");
   const orderRes = await axios.get("http://localhost:3000/api/orders");
 
@@ -163,6 +181,7 @@ export const getServerSideProps = async () => {
     props: {
       orders: orderRes.data,
       products: productRes.data,
+      admin: admin,
     },
   };
 };

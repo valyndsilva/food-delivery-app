@@ -1256,14 +1256,14 @@ export default async function handler(req, res) {
       const product = await Product.findById(id);
       res.status(200).json(product);
     } catch (err) {
-      res.status.json({ message: err.message });
+      res.status(500).json({ message: err.message });
     }
   }
   if (method === "PUT") {
     // update product
     try {
       const product = await Product.create(req.body);
-      res.status(201).json(product);
+      res.status(200).json(product);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -1947,7 +1947,7 @@ const handler = async (req, res) => {
         const order = await Order.findByIdAndUpdate(id, req.body, {
           new: true,
         }); //new:true returns the most updated version
-        res.status(201).json(order);
+        res.status(200).json(order);
       } catch (err) {
         res.status(500).json({ message: err.message });
       }
@@ -2520,5 +2520,515 @@ export const getServerSideProps = async () => {
   };
 };
 
+
+```
+
+## NextJS Cookie Authentication:
+
+To access the admin on homepage we create a button "Create new pizza" but you need to be an admin to see the option.
+If no cookies are set the application will redirect to the Login page.
+
+First, install cookie:
+
+```
+npm install cookie
+
+```
+
+Next, in .env.local create an admin username and password:
+
+```
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=123456
+TOKEN=123456
+```
+
+Create a login endpoint file api/login.js:
+
+```
+import cookie from "cookie";
+const handler = (req, res) => {
+  if (req.method === "POST") {
+    const { username, password } = req.body;
+    if (
+      username === process.env.ADMIN_USERNAME &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      // Set the cookie
+      res.setHeader(
+        "Set-Cookie",
+        cookie.serialize("token", process.env.TOKEN, {
+          maxAge: 60 * 60,
+          sameSite: "strict",
+          path: "/",
+        })
+      );
+      // Send a response after setting the cookie
+      res.status(200).json("Successful");
+    } else {
+      res.status(400).json("Wrong Credentials!");
+    }
+  }
+};
+
+export default handler;
+
+```
+
+Next, create the login component in pages/admin/login.js:
+
+```
+import React, { useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/router";
+
+function Login() {
+  const [username, setUsername] = useState(null);
+  const [password, setPassword] = useState(null);
+  const [error, setError] = useState(false);
+  const router = useRouter();
+
+  const handleClick = async () => {
+    try {
+      await axios.post("http://localhost:3000/api/login", {
+        username,
+        password,
+      });
+      router.push("/admin");
+    } catch (err) {
+      setError(true);
+    }
+  };
+
+  return (
+    <div className="h-[calc(100vh-100px)] flex items-center justify-center">
+      <div className="flex flex-col">
+        <h1 className="text-2xl font-bold mb-5">Admin Dashboard</h1>
+        <input
+          placeholder="username"
+          className="border h-10 mb-5 py-0 px-3 rounded-lg"
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <input
+          placeholder="password"
+          type="password"
+          className="border h-10 mb-5 py-0 px-3 rounded-lg"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button
+          onClick={handleClick}
+          className="h-10 mb-5 border-none bg-teal-500 text-white font-bold cursor-pointer rounded-lg"
+        >
+          Sign In
+        </button>
+        {error && <span className="text-sm text-red-500">Wrong Credentials! Please try again.</span>}
+      </div>
+    </div>
+  );
+}
+
+export default Login;
+
+```
+
+Update the pages/admin/index.js getServerSideProps:
+
+```
+export const getServerSideProps = async (context) => {
+  // If there is no cookie or the token is not correct, redirect to login page
+  const myCookie = context.req?.cookies || "";
+  if (myCookie.token !== process.env.TOKEN) {
+    return { redirect: { destination: "/admin/login", permanent: false } };
+  } // nextJS redirect method
+
+  const productRes = await axios.get("http://localhost:3000/api/products");
+  const orderRes = await axios.get("http://localhost:3000/api/orders");
+
+  return {
+    props: {
+      orders: orderRes.data,
+      products: productRes.data,
+    },
+  };
+};
+
+```
+
+Next to create a new pizza open pages/index.js and 1st update the getServerSideProps and include admin prop in the parent component:
+
+```
+const Home = ({ pizzaList, admin }) => {
+  ...
+
+export const getServerSideProps = async (context) => {
+    // If there is no cookie or the token is not correct, redirect to login page
+    const myCookie = context.req?.cookies || "";
+    let admin=false;
+    if (myCookie.token === process.env.TOKEN) {
+      admin = true;
+    }
+
+
+  const res = await axios.get("http://localhost:3000/api/products");
+  const pizzaList = res.data;
+  return {
+    props: {
+      pizzaList: pizzaList,
+      admin:admin
+    },
+  };
+};
+
+```
+
+Next create a new component AddButton.js and AddProduct.js:
+
+In AddButton.js:
+
+```
+import React from "react";
+
+function AddButton({ setClose }) {
+  return (
+    <div
+      className="p-3 m-5 bg-red-500 w-40 rounded-lg text-white font-medium text-center cursor-pointer"
+      onClick={() => setClose(false)}
+    >
+      Add New Pizza
+    </div>
+  );
+}
+
+export default AddButton;
+
+```
+
+Open Cloudinary and signup. Note down your cloud name.
+"https://api.cloudinary.com/v1_1/cloud_name/image/upload"
+
+Click on Settings > Upload > Add Upload Preset
+Upload preset name: uploads
+Signing Mode: unsigned
+Folder: uploads
+Save
+
+Make sure the correct preset name is used:
+
+```
+const handleCreate = async () => {
+   const data = new FormData();
+   data.append("file", file);
+   data.append("upload_preset", "uploads");
+   try {
+     const uploadRes = await axios.post(
+       "https://api.cloudinary.com/v1_1/valyndsilva/image/upload",
+       data
+     );
+     console.log(uploadRes.data);
+     const { url } = uploadRes.data;
+     const newProduct = {
+       title,
+       desc,
+       prices,
+       extraOptions,
+       img: url,
+     };
+
+     await axios.post("http://localhost:3000/api/products", newProduct);
+     setClose(true);
+   } catch (err) {
+     console.log(err);
+   }
+ };
+```
+
+In AddProduct.js:
+
+```
+import React, { useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/router";
+
+function AddProduct({ setClose }) {
+  const [file, setFile] = useState(null);
+  const [title, setTitle] = useState(null);
+  const [desc, setDesc] = useState(null);
+  const [prices, setPrices] = useState([]);
+  const [extraOptions, setExtraOptions] = useState([]);
+  const [extra, setExtra] = useState(null);
+
+  const changePrice = (e, index) => {
+    const currentPrices = prices;
+    currentPrices[index] = e.target.value;
+    setPrices(currentPrices);
+  };
+
+  const handleExtraInput = (e) => {
+    setExtra({ ...extra, [e.target.name]: e.target.value });
+  };
+
+  const handleExtra = (e) => {
+    setExtraOptions((prev) => [...prev, extra]);
+  };
+
+  const handleCreate = async () => {
+    const data = new FormData();
+    data.append("file", file);
+    data.append("upload_preset", "uploads");
+    try {
+      const uploadRes = await axios.post(
+        "https://api.cloudinary.com/v1_1/valyndsilva/image/upload",
+        data
+      );
+      console.log(uploadRes.data);
+      const { url } = uploadRes.data;
+      const newProduct = {
+        title,
+        desc,
+        prices,
+        extraOptions,
+        img: url,
+      };
+
+      await axios.post("http://localhost:3000/api/products", newProduct);
+      setClose(true);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  return (
+    <div className="w-[100vw] h-[100vh] bg-gray-400 fixed top-0 z-[999] flex items-center justify-center">
+      <div className="w-[500px] bg-white py-5 px-12 rounded-lg flex flex-col justify-between relative">
+        <span
+          onClick={() => setClose(true)}
+          className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center cursor-pointer absolute top-5 right-5"
+        >
+          X
+        </span>
+        <h1 className="text-2xl mb-3">Add A New Pizza</h1>
+        <div className="flex flex-col mb-5">
+          <label className="mb-2 text-md font-bold">Choose an image</label>
+          <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+        </div>
+        <div className="flex flex-col mb-3">
+          <label className="mb-2 text-md font-bold">Title</label>
+          <input
+            className="border p-2 outline-none"
+            type="text"
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col mb-3">
+          <label className="mb-2 text-md font-bold">Desc</label>
+          <textarea
+            className="border p-2 outline-none"
+            rows={4}
+            type="text"
+            onChange={(e) => setDesc(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col mb-3">
+          <label className="mb-2 text-md font-bold">Prices</label>
+          <div className="flex gap-4">
+            <input
+              className="border p-2  outline-none w-[25%]"
+              type="number"
+              placeholder="Small"
+              onChange={(e) => changePrice(e, 0)}
+            />
+            <input
+              className="border p-2  outline-none w-[25%]"
+              type="number"
+              placeholder="Medium"
+              onChange={(e) => changePrice(e, 1)}
+            />
+            <input
+              className="border p-2  outline-none w-[25%]"
+              type="number"
+              placeholder="Large"
+              onChange={(e) => changePrice(e, 2)}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col mb-3">
+          <label className="mb-2 text-md font-medium">Extra</label>
+          <div className="flex gap-4">
+            <input
+              className="border p-2  outline-none w-[25%]"
+              type="text"
+              placeholder="Item"
+              name="text"
+              onChange={handleExtraInput}
+            />
+            <input
+              className="border p-2  outline-none w-[25%]"
+              type="number"
+              placeholder="Price"
+              name="price"
+              onChange={handleExtraInput}
+            />
+            <button
+              className="bg-teal-500 text-white rounded-lg py-2 px-3"
+              onClick={handleExtra}
+            >
+              Add
+            </button>
+          </div>
+          <div className="my-3 mx-0 flex flex-wrap">
+            {extraOptions.map((option) => (
+              <span
+                key={option.text}
+                className="p-2 mb-2 text-md border border-red-400 bg-white text-red-400 mr-2 rounded-lg cursor-pointer"
+              >
+                {option.text}
+              </span>
+            ))}
+          </div>
+        </div>
+        <button
+          className="width-[25%] border-none bg-teal-500 text-white rounded-lg  font-medium cursor-pointer py-2 px-3"
+          onClick={handleCreate}
+        >
+          Create
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default AddProduct;
+
+```
+
+Include AddProduct.js and AddButton.js in pages/index.js:
+
+```
+
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { AddButton, AddProduct, Featured, PizzaList } from "../components";
+const Home = ({ pizzaList, admin }) => {
+  const [close, setClose] = useState(true);
+
+  return (
+    <main className="">
+      <Featured />
+      {admin && <AddButton setClose={setClose} />}
+      <PizzaList pizzaList={pizzaList} />
+      {!close && <AddProduct setClose={setClose} />}
+    </main>
+  );
+};
+
+export default Home;
+
+export const getServerSideProps = async (context) => {
+  // If there is no cookie or the token is not correct, redirect to login page
+  const myCookie = context.req?.cookies || "";
+  let admin = false;
+  if (myCookie.token === process.env.TOKEN) {
+    admin = true;
+  }
+
+  const res = await axios.get("http://localhost:3000/api/products");
+  const pizzaList = res.data;
+  return {
+    props: {
+      pizzaList: pizzaList,
+      admin: admin,
+    },
+  };
+};
+
+```
+
+For extra security open pages/api/products/index.js and update:
+
+```
+import dbConnect from "../../../util/mongodb";
+import Product from "../../../models/Product";
+
+export default async function handler(req, res, next) {
+  const { method, cookies } = req;
+  const token = cookies.token;
+  // Connect to dbConnect
+  await dbConnect();
+
+  if (method === "GET") {
+    try {
+      const products = await Product.find();
+      res.status(200).json(products);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+  if (method === "POST") {
+    if(!token || token !== process.env.TOKEN){
+      return res.status(401).json("Not authenticated!")
+    }
+    try {
+      const product = await Product.create(req.body);
+      res.status(201).json(product);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+}
+
+
+```
+
+pages/api/products/[id].js:
+
+```
+import dbConnect from "../../../util/mongodb";
+import Product from "../../../models/Product";
+
+export default async function handler(req, res) {
+  const {
+    method,
+    query: { id },
+    cookies,
+  } = req;
+  const token = cookies.token;
+  // Connect to dbConnect
+  await dbConnect();
+
+  if (method === "GET") {
+    try {
+      const product = await Product.findById(id);
+      res.status(200).json(product);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+  if (method === "PUT") {
+    if (!token || token !== process.env.TOKEN) {
+      return res.status(401).json("Not authenticated!");
+    }
+    // update product
+    try {
+      const product = await Product.findByIdAndUpdate(id, req.body, {
+        new: true,
+      }); //new:true returns the most updated version
+      res.status(200).json(product);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+  if (method === "DELETE") {
+    if (!token || token !== process.env.TOKEN) {
+      return res.status(401).json("Not authenticated!");
+    }
+    // delete product
+    try {
+      await Product.findByIdAndDelete(id);
+      res.status(200).json("The product has been deleted!");
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+}
 
 ```

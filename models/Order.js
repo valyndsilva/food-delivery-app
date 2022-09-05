@@ -12,10 +12,6 @@ const OrderSchema = new mongoose.Schema(
       required: true,
       maxlength: 250,
     },
-    // phone: {
-    //   type: Number,
-    //   required: true,
-    // },
     total: {
       type: Number,
       required: true,

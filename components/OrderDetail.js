@@ -7,7 +7,7 @@ function OrderDetail({ total, createOrder }) {
     createOrder({ customer, address, total, method: 0 });
   };
   return (
-    <div className="w-full h-[100vh] absolute top-0 left-0 flex items-center justify-center bg-gray-400 opacity-70 z-[999] ">
+    <div className="w-full h-[100vh] absolute top-0 left-0 flex items-center justify-center bg-gray-400 z-[999] ">
       <div className="w-[500px] bg-white rounded-lg p-5 flex flex-col items-center justify-center">
         <h1 className="font-light text-2xl mb-4">
           You will pay $12 after delivery.
